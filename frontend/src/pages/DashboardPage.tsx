@@ -19,6 +19,9 @@ import {
   Flame,
   Radio,
   FileCheck2,
+  FolderKanban,
+  Sparkles,
+  Trash2,
 } from 'lucide-react';
 import {
   PieChart,
@@ -31,7 +34,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { getProjects } from '../api/projects';
+import { getProjects, loadSampleProject, removeSampleProject } from '../api/projects';
 import { getScanFindings } from '../api/scans';
 import { getAdvisories, getTelemetry, triggerLiveSync, RealtimeTelemetry } from '../api/watch';
 import { getCBOM } from '../api/cbom';
@@ -55,6 +58,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [syncingThreats, setSyncingThreats] = useState(false);
   const [syncStatusMsg, setSyncStatusMsg] = useState<string | null>(null);
+  const [sampleActionLoading, setSampleActionLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -96,9 +100,45 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadData();
-    window.addEventListener('activeProjectChanged', () => loadData(true));
-    return () => window.removeEventListener('activeProjectChanged', () => loadData(true));
+    const handleUpdate = () => loadData(true);
+    window.addEventListener('activeProjectChanged', handleUpdate);
+    window.addEventListener('projectsUpdated', handleUpdate);
+    return () => {
+      window.removeEventListener('activeProjectChanged', handleUpdate);
+      window.removeEventListener('projectsUpdated', handleUpdate);
+    };
   }, []);
+
+  const handleLoadSample = async () => {
+    setSampleActionLoading(true);
+    try {
+      const sample = await loadSampleProject();
+      localStorage.setItem('activeProjectId', String(sample.id));
+      await loadData();
+      window.dispatchEvent(new Event('projectsUpdated'));
+      window.dispatchEvent(new Event('activeProjectChanged'));
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to load sample project');
+    } finally {
+      setSampleActionLoading(false);
+    }
+  };
+
+  const handleRemoveSample = async () => {
+    if (!confirm('Remove sample demonstration project and its findings? You can re-add it at any time.')) return;
+    setSampleActionLoading(true);
+    try {
+      await removeSampleProject();
+      localStorage.removeItem('activeProjectId');
+      await loadData();
+      window.dispatchEvent(new Event('projectsUpdated'));
+      window.dispatchEvent(new Event('activeProjectChanged'));
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to remove sample project');
+    } finally {
+      setSampleActionLoading(false);
+    }
+  };
 
   const handleSyncThreats = async () => {
     setSyncingThreats(true);
@@ -168,6 +208,10 @@ export default function DashboardPage() {
   const postureGrade = criticalCount > 0 ? 'NEEDS REMEDIATION (Grade C)' : highCount > 0 ? 'TRANSITION PHASE (Grade B+)' : 'QUANTUM-ALIGNED (Grade A)';
   const postureColor = criticalCount > 0 ? 'text-rose-400 bg-rose-500/10 border-rose-500/30' : highCount > 0 ? 'text-orange-400 bg-orange-500/10 border-orange-500/30' : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
 
+  const activeProjectId = localStorage.getItem('activeProjectId');
+  const activeProject = projects.find((p) => String(p.id) === activeProjectId);
+  const isDemoActive = activeProject?.is_demo;
+
   return (
     <div className="space-y-6">
       {/* Real-time Global Post-Quantum Countdown Banner */}
@@ -207,6 +251,38 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Empty State Banner if no projects */}
+      {totalProjects === 0 && (
+        <div className="p-8 rounded-2xl bg-gray-900 border border-gray-800 shadow-xl text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 mx-auto flex items-center justify-center shadow-lg shadow-indigo-600/20">
+            <FolderKanban className="w-7 h-7" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white">No Codebases Currently Monitored</h3>
+            <p className="text-xs text-gray-400 max-w-lg mx-auto mt-1.5 leading-relaxed">
+              Register your own project to analyze cryptographic assets, or load our pre-configured sample financial gateway to explore findings, risk scores, and post-quantum migration plans.
+            </p>
+          </div>
+          <div className="flex items-center justify-center space-x-3 pt-2">
+            <button
+              onClick={() => navigate('/projects')}
+              className="flex items-center space-x-2 px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Register New Codebase</span>
+            </button>
+            <button
+              onClick={handleLoadSample}
+              disabled={sampleActionLoading}
+              className="flex items-center space-x-2 px-4 py-2 text-xs font-semibold rounded-lg bg-gray-800 hover:bg-gray-700 text-indigo-300 border border-indigo-500/40 transition-all cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <span>{sampleActionLoading ? 'Loading Sample Data...' : 'Load Sample Demo Data'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header & Quick Action Shortcuts */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between pb-4 border-b border-gray-800 gap-4">
         <div>
@@ -219,6 +295,22 @@ export default function DashboardPage() {
           <p className="text-xs text-gray-400 mt-1">
             Real-time cryptographic asset discovery, NIST SP 800-131A compliance &amp; Post-Quantum readiness
           </p>
+          {isDemoActive && (
+            <div className="flex items-center space-x-2 mt-2">
+              <span className="text-[11px] px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/30 font-medium">
+                Active Codebase: {activeProject?.name} (Demo Mode)
+              </span>
+              <button
+                onClick={handleRemoveSample}
+                disabled={sampleActionLoading}
+                className="text-[11px] px-2 py-0.5 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 transition-colors cursor-pointer flex items-center space-x-1"
+                title="Remove sample demonstration data"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Remove Sample Data</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center space-x-2 flex-wrap gap-y-2">

@@ -58,10 +58,10 @@ def _get_user(firebase_uid: str, db: Session) -> User:
 def _get_project(project_id: int, user: User, db: Session) -> Project:
     project = (
         db.query(Project)
-        .filter(Project.id == project_id, (Project.owner_id == user.id) | (Project.is_demo == True))
+        .filter(Project.id == project_id, Project.owner_id == user.id)
         .first()
     )
-    if not project:
+    if not project and user.firebase_uid == "demo-enterprise-admin":
         project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
@@ -265,10 +265,38 @@ def list_projects(
     user = _get_user(firebase_uid, db)
     return (
         db.query(Project)
-        .filter((Project.owner_id == user.id) | (Project.is_demo == True))
+        .filter(Project.owner_id == user.id)
         .order_by(Project.created_at.desc())
         .all()
     )
+
+
+@router.post("/projects/sample-data", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
+@router.post("/projects/sample", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
+def load_sample_project(
+    firebase_uid: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Load or restore the sample enterprise financial project for the active user."""
+    from app.db.seed import create_sample_project_for_user
+    user = _get_user(firebase_uid, db)
+    project = create_sample_project_for_user(user, db)
+    _audit(db, user, project, "sample_loaded", f"Loaded sample project '{project.name}'")
+    db.commit()
+    return project
+
+
+@router.delete("/projects/sample-data", status_code=status.HTTP_200_OK)
+@router.delete("/projects/sample", status_code=status.HTTP_200_OK)
+def remove_sample_project(
+    firebase_uid: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove any sample demo project for the active user."""
+    from app.db.seed import delete_sample_project_for_user
+    user = _get_user(firebase_uid, db)
+    delete_sample_project_for_user(user, db)
+    return {"success": True, "message": "Sample data removed."}
 
 
 @router.get("/projects/{project_id}", response_model=ProjectOut)

@@ -67,7 +67,11 @@ export default function LabPage() {
   useEffect(() => {
     loadData();
     window.addEventListener('activeProjectChanged', loadData);
-    return () => window.removeEventListener('activeProjectChanged', loadData);
+    window.addEventListener('projectsUpdated', loadData);
+    return () => {
+      window.removeEventListener('activeProjectChanged', loadData);
+      window.removeEventListener('projectsUpdated', loadData);
+    };
   }, []);
 
   const handleRunExperiment = async (plan: MigrationPlan) => {

@@ -15,7 +15,7 @@ import {
   RefreshCw,
   FolderKanban,
 } from 'lucide-react';
-import { getProjects } from '../api/projects';
+import { getProjects, loadSampleProject } from '../api/projects';
 import { getProjectCompliance, ComplianceAuditResponse, ComplianceFrameworkReport } from '../api/compliance';
 import { Project } from '../types';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -55,8 +55,13 @@ export default function CompliancePage() {
 
   useEffect(() => {
     loadData();
-    window.addEventListener('activeProjectChanged', () => loadData());
-    return () => window.removeEventListener('activeProjectChanged', () => loadData());
+    const handleUpdate = () => loadData();
+    window.addEventListener('activeProjectChanged', handleUpdate);
+    window.addEventListener('projectsUpdated', handleUpdate);
+    return () => {
+      window.removeEventListener('activeProjectChanged', handleUpdate);
+      window.removeEventListener('projectsUpdated', handleUpdate);
+    };
   }, []);
 
   const handleProjectSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -141,6 +146,39 @@ export default function CompliancePage() {
           </button>
         </div>
       </div>
+
+      {projects.length === 0 && (
+        <div className="p-8 rounded-2xl bg-gray-900 border border-gray-800 shadow-xl text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 mx-auto flex items-center justify-center">
+            <Scale className="w-7 h-7" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white">No Codebases Monitored for Compliance</h3>
+            <p className="text-xs text-gray-400 max-w-lg mx-auto mt-1">
+              Select or register a project to view its regulatory compliance scorecard across NIST, CNSA 2.0, PCI-DSS, and EU-CRA, or load our sample financial gateway.
+            </p>
+          </div>
+          <div className="flex items-center justify-center space-x-3 pt-2">
+            <button
+              onClick={() => navigate('/projects')}
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-all cursor-pointer"
+            >
+              Register New Codebase
+            </button>
+            <button
+              onClick={async () => {
+                const sample = await loadSampleProject();
+                localStorage.setItem('activeProjectId', String(sample.id));
+                window.dispatchEvent(new Event('projectsUpdated'));
+                window.dispatchEvent(new Event('activeProjectChanged'));
+              }}
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-800 text-indigo-300 border border-indigo-500/40 hover:bg-gray-700 transition-all cursor-pointer"
+            >
+              Load Sample Demo Data
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Executive Scorecard Banner */}
       <div className="p-6 rounded-2xl bg-gradient-to-r from-gray-900 via-indigo-950/40 to-gray-900 border border-gray-800 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">

@@ -39,3 +39,12 @@ export async function scanProject(projectId: string): Promise<Scan> {
   const res = await apiClient.post(`/api/projects/${projectId}/scan`);
   return res.data;
 }
+
+export async function loadSampleProject(): Promise<Project> {
+  const res = await apiClient.post('/api/projects/sample-data');
+  return res.data;
+}
+
+export async function removeSampleProject(): Promise<void> {
+  await apiClient.delete('/api/projects/sample-data');
+}

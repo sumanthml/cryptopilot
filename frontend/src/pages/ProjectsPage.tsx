@@ -15,9 +15,10 @@ import {
   UploadCloud,
   FileArchive,
   X,
+  Sparkles,
 } from 'lucide-react';
 import JSZip from 'jszip';
-import { getProjects, createProject, deleteProject, scanProject } from '../api/projects';
+import { getProjects, createProject, deleteProject, scanProject, loadSampleProject, removeSampleProject } from '../api/projects';
 import { getScanStatus, ScanStatusResponse } from '../api/scans';
 import { Project } from '../types';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -206,8 +207,35 @@ export default function ProjectsPage() {
         localStorage.removeItem('activeProjectId');
       }
       await loadProjects();
+      window.dispatchEvent(new Event('projectsUpdated'));
+      window.dispatchEvent(new Event('activeProjectChanged'));
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Failed to delete project');
+    }
+  };
+
+  const handleLoadSample = async () => {
+    try {
+      const sample = await loadSampleProject();
+      localStorage.setItem('activeProjectId', String(sample.id));
+      await loadProjects();
+      window.dispatchEvent(new Event('projectsUpdated'));
+      window.dispatchEvent(new Event('activeProjectChanged'));
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to load sample project');
+    }
+  };
+
+  const handleRemoveSample = async () => {
+    if (!confirm('Remove sample demonstration project? You can re-add it at any time.')) return;
+    try {
+      await removeSampleProject();
+      localStorage.removeItem('activeProjectId');
+      await loadProjects();
+      window.dispatchEvent(new Event('projectsUpdated'));
+      window.dispatchEvent(new Event('activeProjectChanged'));
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to remove sample project');
     }
   };
 
@@ -219,26 +247,50 @@ export default function ProjectsPage() {
     );
   }
 
+  const hasSampleProject = projects.some((p) => p.is_demo);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-800 gap-3">
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight">Project Registry</h1>
           <p className="text-xs text-gray-400 mt-1">
             Register codebases for cryptographic discovery, risk assessment, and post-quantum migration
           </p>
         </div>
-        <button
-          onClick={() => {
-            setCreateModalOpen(true);
-            handleClearFolder();
-          }}
-          className="flex items-center space-x-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition-all"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Register New Codebase</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          {hasSampleProject ? (
+            <button
+              onClick={handleRemoveSample}
+              className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 hover:text-white transition-all cursor-pointer"
+              title="Remove sample demonstration project"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Remove Sample</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleLoadSample}
+              className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-gray-800 hover:bg-gray-700 text-indigo-300 border border-indigo-500/40 transition-all cursor-pointer"
+              title="Load pre-configured sample financial gateway"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Load Sample Data</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              setCreateModalOpen(true);
+              handleClearFolder();
+            }}
+            className="flex items-center space-x-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Register New Codebase</span>
+          </button>
+        </div>
       </div>
 
       {/* Projects Grid */}

@@ -122,6 +122,13 @@ export default function DiscoverPage() {
       }
     }
     init();
+
+    window.addEventListener('activeProjectChanged', init);
+    window.addEventListener('projectsUpdated', init);
+    return () => {
+      window.removeEventListener('activeProjectChanged', init);
+      window.removeEventListener('projectsUpdated', init);
+    };
   }, []);
 
   const loadFindings = async (projId: string) => {
