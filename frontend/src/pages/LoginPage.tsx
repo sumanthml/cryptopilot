@@ -56,6 +56,8 @@ export default function LoginPage() {
   // 1. Instant Demo Access
   const handleInstantDemo = () => {
     clearErrors();
+    localStorage.removeItem('cryptopilot_demo_sample_removed');
+    localStorage.setItem('activeProjectId', '1');
     loginAsDemo();
     navigate('/dashboard');
   };

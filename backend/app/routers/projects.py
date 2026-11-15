@@ -263,12 +263,20 @@ def list_projects(
     db: Session = Depends(get_db),
 ):
     user = _get_user(firebase_uid, db)
-    return (
+    user_projects = (
         db.query(Project)
         .filter(Project.owner_id == user.id)
         .order_by(Project.created_at.desc())
         .all()
     )
+    # If the user is in demo mode and has no projects yet, auto-seed the demo project
+    if not user_projects and (user.firebase_uid == "demo-enterprise-admin" or "demo" in user.firebase_uid):
+        from app.db.seed import create_sample_project_for_user
+        demo_project = create_sample_project_for_user(user, db)
+        db.commit()
+        return [demo_project]
+
+    return user_projects
 
 
 @router.post("/projects/sample-data", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
