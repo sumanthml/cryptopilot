@@ -1,0 +1,14 @@
+[project]
+name = "pypay-gateway-demo"
+version = "0.1.0"
+description = "Demo/Test Project for CryptoPilot Cryptographic Analysis and Modernization System"
+requires-python = ">=3.10"
+dependencies = [
+    "cryptography>=42.0.0",
+    "pycryptodome>=3.20.0",
+    "PyJWT>=2.8.0",
+]
+
+[tool.cryptopilot]
+project_type = "demo_test_project"
+environment = "sandbox_demo"

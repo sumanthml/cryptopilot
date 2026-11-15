@@ -1,0 +1,22 @@
+# Demo/Test Project Security Configuration (No Real Secrets)
+service:
+  name: pypay-gateway-demo
+  exposure: public
+  data_classification: confidential_pii_financial
+  data_retention_years: 10
+
+cryptography:
+  token_signing:
+    algorithm: RS256
+    key_size: 2048
+    rotation_days: 365
+  session_cipher:
+    algorithm: AES-128-ECB
+    legacy_fallback: true
+  digest:
+    integrity_hash: MD5
+  tls:
+    min_version: TLSv1.0
+    preferred_ciphers:
+      - TLS_RSA_WITH_AES_128_CBC_SHA
+      - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384

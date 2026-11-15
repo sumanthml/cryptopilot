@@ -1,0 +1,36 @@
+services:
+  # ── Backend API (FastAPI + Uvicorn) ────────────────────────────────────────
+  - type: web
+    name: cryptopilot-backend
+    runtime: python
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: DATABASE_URL
+        sync: false          # Optional: set in Render dashboard for PostgreSQL or leave blank for automatic local SQLite
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_API_KEY2
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: CRYPTOPILOT_SECRET_KEY
+        generateValue: true  # Render auto-generates a secure random value
+      - key: CRYPTOPILOT_ENV
+        value: production
+      - key: CRYPTOPILOT_AI_PROVIDER
+        value: auto
+      - key: CRYPTOPILOT_CORS_ORIGINS
+        value: "*"
+      - key: CRYPTOPILOT_ENABLE_REMOTE_ADVISORIES
+        value: "true"
