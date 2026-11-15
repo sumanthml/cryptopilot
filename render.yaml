@@ -7,13 +7,13 @@ services:
     plan: free
     branch: main
     rootDir: backend
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
     startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /health
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
-        value: "3.12.0"
+        value: "3.11.10"
       - key: DATABASE_URL
         sync: false          # Optional: set PostgreSQL URL or leave empty for auto-sqlite fallback
       - key: GROQ_API_KEY
