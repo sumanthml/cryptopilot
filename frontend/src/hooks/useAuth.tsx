@@ -25,6 +25,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginAsDemo: () => void;
+  loginWithCustomUser: (email: string, displayName?: string) => void;
   register: (email: string, password: string, displayName: string) => Promise<User>;
   logout: () => Promise<void>;
   getToken: () => Promise<string | null>;
@@ -40,8 +41,31 @@ const DEMO_USER_PROFILE: DemoUser = {
   getIdToken: async () => 'demo-token',
 };
 
+function getStoredCustomUser(): DemoUser | null {
+  const custom = localStorage.getItem('cryptopilot_custom_auth');
+  if (custom) {
+    try {
+      const data = JSON.parse(custom);
+      if (data && data.email) {
+        return {
+          uid: data.uid || data.email,
+          email: data.email,
+          displayName: data.displayName || data.email.split('@')[0],
+          photoURL: data.photoURL || '',
+          getIdToken: async () => `custom:${data.email}:${data.displayName || data.email.split('@')[0]}`,
+        };
+      }
+    } catch {
+      localStorage.removeItem('cryptopilot_custom_auth');
+    }
+  }
+  return null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | DemoUser | null>(() => {
+    const customUser = getStoredCustomUser();
+    if (customUser) return customUser;
     if (localStorage.getItem('cryptopilot_demo_auth') === 'true') {
       return DEMO_USER_PROFILE;
     }
@@ -53,9 +77,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         localStorage.removeItem('cryptopilot_demo_auth');
+        localStorage.removeItem('cryptopilot_custom_auth');
         setCurrentUser(user);
       } else {
-        if (localStorage.getItem('cryptopilot_demo_auth') === 'true') {
+        const customUser = getStoredCustomUser();
+        if (customUser) {
+          setCurrentUser(customUser);
+        } else if (localStorage.getItem('cryptopilot_demo_auth') === 'true') {
           setCurrentUser(DEMO_USER_PROFILE);
         } else {
           setCurrentUser(null);
@@ -68,22 +96,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     localStorage.removeItem('cryptopilot_demo_auth');
+    localStorage.removeItem('cryptopilot_custom_auth');
     await signInWithEmailAndPassword(auth, email, password);
   };
 
   const loginWithGoogle = async () => {
     localStorage.removeItem('cryptopilot_demo_auth');
+    localStorage.removeItem('cryptopilot_custom_auth');
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
   };
 
   const loginAsDemo = () => {
+    localStorage.removeItem('cryptopilot_custom_auth');
     localStorage.setItem('cryptopilot_demo_auth', 'true');
     setCurrentUser(DEMO_USER_PROFILE);
   };
 
+  const loginWithCustomUser = (email: string, displayName?: string) => {
+    localStorage.removeItem('cryptopilot_demo_auth');
+    const name = displayName || email.split('@')[0];
+    const userObj = {
+      uid: email,
+      email: email,
+      displayName: name,
+      photoURL: '',
+    };
+    localStorage.setItem('cryptopilot_custom_auth', JSON.stringify(userObj));
+    setCurrentUser({
+      ...userObj,
+      getIdToken: async () => `custom:${email}:${name}`,
+    });
+  };
+
   const register = async (email: string, password: string, displayName: string): Promise<User> => {
     localStorage.removeItem('cryptopilot_demo_auth');
+    localStorage.removeItem('cryptopilot_custom_auth');
     const { user } = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(user, { displayName });
     return user;
@@ -91,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     localStorage.removeItem('cryptopilot_demo_auth');
+    localStorage.removeItem('cryptopilot_custom_auth');
     setCurrentUser(null);
     try {
       await signOut(auth);
@@ -110,6 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     loginWithGoogle,
     loginAsDemo,
+    loginWithCustomUser,
     register,
     logout,
     getToken,

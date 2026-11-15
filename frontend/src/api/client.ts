@@ -11,7 +11,7 @@ const apiClient = axios.create({
   timeout: 30000,
 });
 
-// Request interceptor: attach Firebase ID token or demo token
+// Request interceptor: attach Firebase ID token, custom auth token, or demo token
 apiClient.interceptors.request.use(
   async (config) => {
     const user = auth.currentUser;
@@ -19,10 +19,26 @@ apiClient.interceptors.request.use(
       try {
         const token = await user.getIdToken();
         config.headers.Authorization = `Bearer ${token}`;
+        return config;
       } catch (err) {
         console.warn('Failed to get Firebase token:', err);
       }
-    } else if (localStorage.getItem('cryptopilot_demo_auth') === 'true') {
+    }
+
+    const customAuth = localStorage.getItem('cryptopilot_custom_auth');
+    if (customAuth) {
+      try {
+        const parsed = JSON.parse(customAuth);
+        if (parsed.email) {
+          config.headers.Authorization = `Bearer custom:${parsed.email}:${parsed.displayName || ''}`;
+          return config;
+        }
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+
+    if (localStorage.getItem('cryptopilot_demo_auth') === 'true') {
       config.headers.Authorization = 'Bearer demo-token';
     }
     return config;

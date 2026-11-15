@@ -39,6 +39,12 @@ async def firebase_login(body: FirebaseLoginRequest, db: Session = Depends(get_d
         email = "lead.architect@cryptopilot.io"
         display_name = "Enterprise Security Lead"
         photo_url = ""
+    elif body.id_token.startswith("custom:"):
+        parts = body.id_token.split(":")
+        email = parts[1] if len(parts) > 1 and parts[1] else "user@cryptopilot.io"
+        display_name = parts[2] if len(parts) > 2 and parts[2] else email.split("@")[0].capitalize()
+        firebase_uid = email
+        photo_url = ""
     else:
         try:
             payload = await verify_firebase_token(body.id_token)
