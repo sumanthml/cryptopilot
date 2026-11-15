@@ -59,3 +59,33 @@ app.include_router(ai_router.router, prefix="/api/ai", tags=["ai"])
 @app.get("/health", tags=["health"])
 async def health_check():
     return {"status": "ok", "service": "CryptoPilot API", "version": "1.0.0"}
+
+
+# ── Serve Built Frontend SPA (for Unified All-in-One Deployments) ───────────
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+frontend_candidates = [
+    Path(__file__).resolve().parent.parent.parent / "frontend" / "dist",
+    Path("frontend/dist"),
+    Path("../frontend/dist"),
+]
+
+frontend_dist = next((p for p in frontend_candidates if p.exists() and (p / "index.html").exists()), None)
+
+if frontend_dist:
+    assets_dir = frontend_dist / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="frontend-assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend_spa(full_path: str):
+        if full_path.startswith("api") or full_path.startswith("docs") or full_path.startswith("openapi") or full_path == "health":
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="API route not found")
+        target_file = frontend_dist / full_path
+        if target_file.is_file():
+            return FileResponse(str(target_file))
+        return FileResponse(str(frontend_dist / "index.html"))
+
